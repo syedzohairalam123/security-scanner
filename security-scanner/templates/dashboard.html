@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}{{ scan.target_url }} — Perimeter{% endblock %}
+{% block content %}
+{% set counts = scan.severity_counts() %}
+{% set total = counts.critical + counts.high + counts.medium + counts.low + counts.info %}
+
+<div class="dashboard-header">
+  <div class="container" style="padding:0;">
+    <a class="back-link" href="{{ url_for('main.index') }}">&larr; New scan</a>
+    <div class="target-url">{{ scan.target_url }}</div>
+    <div class="meta-line">
+      Scanned {{ scan.finished_at.strftime('%b %d, %Y %H:%M UTC') if scan.finished_at else 'in progress' }}
+      {% if scan.duration_ms %} · took {{ (scan.duration_ms / 1000) | round(1) }}s{% endif %}
+      {% if scan.error_message %} · some checks were skipped{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="dashboard-body">
+  <div>
+    <div class="panel">
+      <div class="panel-title">Risk score</div>
+      <div class="risk-score-value">{{ scan.risk_score | round(1) }}<span>/100</span></div>
+      <div class="risk-level-badge" style="color: var(--{{ scan.risk_level }});">{{ scan.risk_level }}</div>
+      <div class="risk-meter-track">
+        <div class="risk-meter-fill" style="width: {{ scan.risk_score }}%; background: var(--{{ scan.risk_level }});"></div>
+      </div>
+
+      {% if total > 0 %}
+      <div class="severity-bar">
+        {% for level in ["critical", "high", "medium", "low", "info"] %}
+          {% if counts[level] > 0 %}
+          <div class="severity-bar-segment" style="width: {{ (counts[level] / total * 100) }}%; background: var(--{{ level }});"></div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      <div class="severity-legend">
+        {% for level in ["critical", "high", "medium", "low", "info"] %}
+        <span class="legend-item"><span class="legend-dot" style="background: var(--{{ level }});"></span>{{ level | capitalize }} ({{ counts[level] }})</span>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p style="margin-top:14px;">No findings recorded for this scan.</p>
+      {% endif %}
+
+      <div class="panel-actions">
+        <a class="btn btn-ghost btn-sm" href="{{ url_for('scan.scan_report_pdf', scan_id=scan.id) }}">Export PDF</a>
+        <a class="btn btn-ghost btn-sm" href="{{ url_for('scan.scan_report_csv', scan_id=scan.id) }}">Export CSV</a>
+        <a class="btn btn-ghost btn-sm" href="{{ url_for('scan.scan_report_sarif', scan_id=scan.id) }}" title="Plugs into GitHub Code Scanning / Azure DevOps">Export SARIF</a>
+      </div>
+    </div>
+
+    {% if scan.diff_summary %}
+    {% set diff = scan.diff_summary %}
+    <div class="panel">
+      <div class="panel-title">Since your last scan of this target</div>
+      <p style="margin-bottom:10px;">
+        {{ diff.previous_scanned_at[:10] if diff.previous_scanned_at else 'previous scan' }}
+        · risk was {{ diff.previous_risk_score | round(1) }}
+        {% if scan.risk_score > diff.previous_risk_score %}
+          <span style="color: var(--critical);">&uarr; up {{ (scan.risk_score - diff.previous_risk_score) | round(1) }}</span>
+        {% elif scan.risk_score < diff.previous_risk_score %}
+          <span style="color: var(--low);">&darr; down {{ (diff.previous_risk_score - scan.risk_score) | round(1) }}</span>
+        {% else %}
+          <span>unchanged</span>
+        {% endif %}
+      </p>
+      <div class="diff-stats">
+        <span class="diff-stat diff-new">{{ diff.new_count }} new</span>
+        <span class="diff-stat diff-resolved">{{ diff.resolved_count }} resolved</span>
+        <span class="diff-stat diff-recurring">{{ diff.recurring_count }} recurring</span>
+      </div>
+      {% if diff.resolved_titles %}
+      <div class="block-label" style="margin-top:12px;">Fixed since last time</div>
+      <ul style="list-style:none; padding:0; margin:6px 0 0;">
+        {% for title in diff.resolved_titles %}
+        <li style="font-size:0.85rem; color: var(--ink-dim); padding:3px 0;">&#10003; {{ title }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if scan.meta.get('open_ports') or scan.meta.get('detected_framework') or scan.meta.get('tls_protocol') or scan.meta.get('detected_software') %}
+    <div class="panel">
+      <div class="panel-title">Scan details</div>
+      {% if scan.meta.get('open_ports') %}<p class="mono" style="font-size:0.85rem;">Open ports: {{ scan.meta.open_ports | join(', ') }}</p>{% endif %}
+      {% if scan.meta.get('detected_framework') %}<p style="font-size:0.85rem;">Detected framework: {{ scan.meta.detected_framework }}</p>{% endif %}
+      {% if scan.meta.get('tls_protocol') %}<p style="font-size:0.85rem;">TLS: {{ scan.meta.tls_protocol }} ({{ scan.meta.tls_cipher }})</p>{% endif %}
+      {% if scan.meta.get('detected_software') %}<p style="font-size:0.85rem;">Software banners: {{ scan.meta.detected_software | join(', ') }}</p>{% endif %}
+    </div>
+    {% endif %}
+
+    <div class="panel">
+      <div class="panel-title">Ask about this report</div>
+      {% if ai_enabled %}
+      <div class="ai-messages" id="ai-messages"></div>
+      <form id="ai-ask-form" data-scan-id="{{ scan.id }}">
+        <div class="ai-input-row">
+          <input type="text" id="ai-question" placeholder="e.g. Which finding should I fix first?" autocomplete="off">
+          <button type="submit" id="ai-ask-btn" class="btn btn-primary btn-sm">Ask</button>
+        </div>
+      </form>
+      {% else %}
+      <p class="ai-disabled-note">Not configured on this deployment — set ANTHROPIC_API_KEY to enable a chat assistant that explains these findings.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="findings-list">
+    {% for f in scan.findings %}
+    <details class="finding-row{% if f.category == 'attack_chain' %} finding-row--chain{% endif %}" data-severity="{{ f.severity }}"{% if loop.index <= 3 or f.category == 'attack_chain' %} open{% endif %}>
+      <summary>
+        {% if f.category == 'attack_chain' %}<span class="chain-icon" title="Synthesized from multiple findings">&#9939;</span>{% endif %}
+        <span class="severity-badge {{ f.severity }}">{{ f.severity }}</span>
+        {% if f.confidence %}<span class="confidence-badge confidence-{{ f.confidence }}">{{ f.confidence }} confidence</span>{% endif %}
+        <span class="finding-title">{{ f.title }}</span>
+        <span class="category-tag">{{ f.category }}</span>
+        <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+      </summary>
+      <div class="finding-detail">
+        <p style="margin-top:8px;">{{ f.description }}</p>
+        {% if f.evidence %}
+        <div class="block-label">{% if f.category == 'attack_chain' %}Built from{% else %}Evidence{% endif %}</div>
+        <div class="evidence-block">{{ f.evidence }}</div>
+        {% endif %}
+        {% if f.recommendation %}
+        <div class="block-label">Recommendation</div>
+        <p>{{ f.recommendation }}</p>
+        {% endif %}
+        {% if f.code_snippet %}
+        <div class="block-label">{{ f.code_snippet_label or 'Suggested fix' }}</div>
+        <pre><code>{{ f.code_snippet }}</code></pre>
+        {% endif %}
+        {% if f.cve_refs_list %}
+        <div class="block-label">Related CVEs</div>
+        <div class="cve-chips">
+          {% for cve in f.cve_refs_list %}
+          <a class="cve-chip" href="{{ cve.url }}" target="_blank" rel="noopener">{{ cve.id }}{% if cve.cvss %} · CVSS {{ cve.cvss }}{% endif %}</a>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </details>
+    {% else %}
+    <div class="panel">
+      <p style="margin:0;">No findings — either the target looked clean on every check, or it couldn't be reached.</p>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
