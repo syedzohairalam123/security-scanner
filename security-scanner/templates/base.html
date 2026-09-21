@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Perimeter — vulnerability scanner{% endblock %}</title>
+  <meta name="description" content="Scan a site you own or are authorized to test for common security vulnerabilities and get a plain-language report with fixes.">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="{{ url_for('main.index') }}">
+      <svg class="brand-mark" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1.5" y="1.5" width="17" height="17" rx="3" stroke-width="1.4"/>
+        <rect class="dot" x="8.25" y="8.25" width="3.5" height="3.5" rx="1"/>
+      </svg>
+      Perimeter
+    </a>
+    <nav class="site-nav">
+      {% if current_user.is_authenticated %}
+        <a href="{{ url_for('main.history') }}">History</a>
+        <a href="{{ url_for('auth.logout') }}">Sign out</a>
+      {% else %}
+        <a href="{{ url_for('auth.login') }}">Sign in</a>
+        <a class="nav-cta" href="{{ url_for('auth.signup') }}">Create account</a>
+      {% endif %}
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle color theme">
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+    </nav>
+  </header>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-stack">
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container" style="padding:0;">
+      <p>Built for educational, authorized security testing only. Only scan systems you own or have explicit permission to test.</p>
+    </div>
+  </footer>
+
+  <script src="/main.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
