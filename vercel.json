@@ -1,5 +1,29 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/favicon.svg",
+      "dest": "public/favicon.svg"
+    },
+    {
+      "src": "/style.css",
+      "dest": "public/style.css"
+    },
+    {
+      "src": "/main.js",
+      "dest": "public/main.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "api/index.py"
+    }
+  ],
   "crons": [
     { "path": "/api/cron/scheduled-scans", "schedule": "0 0 * * *" }
   ]
