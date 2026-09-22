@@ -3,7 +3,10 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-LOCAL_DATABASE_PATH = PROJECT_ROOT / "instance" / "dev.db"
+if os.environ.get("VERCEL"):
+    LOCAL_DATABASE_PATH = Path("/tmp/dev.db")
+else:
+    LOCAL_DATABASE_PATH = PROJECT_ROOT / "instance" / "dev.db"
 
 
 class Config:

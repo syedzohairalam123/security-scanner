@@ -55,7 +55,10 @@ def create_app():
     def server_error(_e):
         return render_template("error.html", code=500, message="Something went wrong on our end."), 500
 
-    Path(app.instance_path).mkdir(parents=True, exist_ok=True)
+    try:
+        Path(app.instance_path).mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass  # Vercel's filesystem is read-only outside /tmp
     with app.app_context():
         db.create_all()
 
