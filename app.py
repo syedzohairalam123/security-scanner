@@ -60,7 +60,10 @@ def create_app():
     except OSError:
         pass  # Vercel's filesystem is read-only outside /tmp
     with app.app_context():
-        db.create_all()
+        try:
+            db.create_all()
+        except Exception:
+            pass  # Tables will be created on first successful connection
 
     return app
 
