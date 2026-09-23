@@ -1,0 +1,36 @@
+# Vercel's Python runtime reads this file for two things:
+#   1. [tool.vercel] entrypoint - tells the Flask builder exactly which module
+#      and variable to serve. Without it Vercel guesses from the filename
+#      (app.py/index.py/...), which fails with
+#      "No Flask entrypoint found" on this layout.
+#   2. [project] dependencies - once a pyproject.toml exists, Vercel ignores
+#      requirements.txt, so the dependency list below must stay in sync with
+#      requirements.txt (CI and local dev still install from requirements.txt).
+#
+# [tool.uv] package = false keeps this a "virtual" project: the app is not a
+# buildable distribution, and without it uv would try to package the flat
+# layout (routes/, scanner/, reports/) with setuptools and fail.
+
+[project]
+name = "security-scanner"
+version = "1.0.0"
+requires-python = ">=3.12"
+dependencies = [
+    "Flask>=3.0,<4.0",
+    "Flask-SQLAlchemy>=3.1,<4.0",
+    "Flask-Login>=0.6,<0.7",
+    "Flask-WTF>=1.2,<2.0",
+    "email-validator>=2.1,<3.0",
+    "requests>=2.31,<3.0",
+    "beautifulsoup4>=4.12,<5.0",
+    "reportlab>=4.2,<5.0",
+    "python-dotenv>=1.0,<2.0",
+    "dnspython>=2.6,<3.0",
+    "psycopg2-binary>=2.9,<3.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.vercel]
+entrypoint = "app:app"

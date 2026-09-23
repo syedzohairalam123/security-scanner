@@ -85,7 +85,9 @@ were deliberately left out.
 ## Project structure
 
 ```
-app.py                  Flask entry point (Vercel auto-detects `app` here)
+app.py                  Flask entry point (exported as `app`; Vercel is
+                        pointed at it via [tool.vercel] in pyproject.toml)
+pyproject.toml           Vercel entrypoint + the dependency list
 config.py                All settings, read from environment variables
 extensions.py             db / login_manager / csrf singletons
 models.py                 User, Scan, Finding, ScheduledTarget
@@ -155,8 +157,18 @@ vercel dev
 
 1. Push this project to a GitHub/GitLab/Bitbucket repo.
 2. Import it at [vercel.com/new](https://vercel.com/new). Vercel detects
-   Flask automatically — **no build command or vercel.json edits needed**
-   for the app itself.
+   Flask automatically and serves the app using the entrypoint declared in
+   `pyproject.toml`:
+
+   ```toml
+   [tool.vercel]
+   entrypoint = "app:app"   # app.py, variable `app`
+   ```
+
+   Keeping that declaration means Vercel never has to guess the entrypoint
+   from filenames, so a `create_app()` factory cannot confuse the detector.
+   `vercel.json` only configures the cron job — the Flask preset routes every
+   path to `app.py` on its own, so no `rewrites` are needed.
 3. In Project Settings → Environment Variables, set at minimum `SECRET_KEY`
    and `DATABASE_URL` (a hosted Postgres URL — see below). Add
    `ANTHROPIC_API_KEY`, `CRON_SECRET`, and the `SMTP_*` vars if you want
@@ -169,6 +181,11 @@ database (Vercel Postgres, [Neon](https://neon.tech), or
 [Supabase](https://supabase.com) all work), copy its connection string into
 `DATABASE_URL`, and redeploy — the app creates its tables automatically on
 first request, no migration step required for this project's scope.
+
+**Dependencies:** Vercel installs from `pyproject.toml` whenever that file
+exists (`requirements.txt` is only used when there is no `pyproject.toml`),
+so add new packages to **both** files. CI and the local steps above keep
+using `requirements.txt`.
 
 **Cron jobs run only on production deployments** (not previews), and only
 on paid Vercel plans support more than one cron job — this project defines
