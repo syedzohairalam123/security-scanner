@@ -17,3 +17,5 @@ node_modules/
 .coverage
 htmlcov/
 .kilo/
+.tmp_vc/
+bin/
